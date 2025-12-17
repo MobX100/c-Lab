@@ -1,6 +1,8 @@
 #include <catch2/catch_all.hpp>
+
 #include <string>
-#include "variant.hpp"
+
+#include <variant.hpp>
 
 TEST_CASE("variant::number")
 {
@@ -21,7 +23,7 @@ TEST_CASE("variant::array")
 
 TEST_CASE("variant::recursive_array")
 {
-    recursive_array arr = {1, 2.2f, std::make_shared<recursive_array>(recursive_array{3, 7.9f, -8}), 9};
+    recursive_array arr = {1, 2.2f, std::shared_ptr<recursive_array>(new recursive_array{3, 7.9f, -8}), 9};
     CHECK(std::get<float>(std::get<number>(arr[1])) == Catch::Approx(2.2f));
     CHECK(std::get<int>(std::get<number>(std::get<std::shared_ptr<recursive_array>>(arr[2])->operator[](2))) == -8);
     CHECK(std::get<int>(std::get<number>(arr[3])) == 9);
@@ -91,19 +93,19 @@ TEST_CASE("variant::recursive_map")
 
     SECTION("std::get")
     {
-        CHECK(boost::get<int>(m["abc"]) == 132);
-        CHECK(boost::get<std::string>(m["next"]) == "message");
-        auto& inner = boost::get<boost::recursive_wrapper<recursive_map>>(m["map"]).get();
-        CHECK(boost::get<bool>(inner["inner"]) == true);
-        CHECK(boost::get<int>(inner["num"]) == 123);
+        CHECK(std::get<int>(m["abc"]) == 132);
+        CHECK(std::get<std::string>(m["next"]) == "message");
+        auto& inner = std::get<boost::recursive_wrapper<recursive_map>>(m["map"]).get();
+        CHECK(std::get<bool>(inner["inner"]) == true);
+        CHECK(std::get<int>(inner["num"]) == 123);
     }
 
     SECTION("as")
     {
-        CHECK(m.as<int>("abc") == 132);
-        CHECK(m.as<std::string>("next") == "message");
-        auto& inner = m.as<recursive_map>("map");
-        CHECK(inner.as<bool>("inner") == true);
-        CHECK(inner.as<int>("num") == 123);
+        CHECK(m["abc"].as<int>() == 132);
+        CHECK(m["next"].as<std::string>() == "message");
+        auto& inner = m["map"].as<recursive_map>();
+        CHECK(inner["inner"].as<bool>() == true);
+        CHECK(inner["num"].as<int>() == 123);
     }
 }
