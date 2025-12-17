@@ -1,0 +1,109 @@
+#include <catch2/catch_all.hpp>
+#include <string>
+#include "variant.hpp"
+
+TEST_CASE("variant::number")
+{
+    number i = 123;
+    number f = -569.6f;
+    CHECK(std::get<int>(i) == 123);
+    CHECK(std::get<float>(f) == Catch::Approx(-569.6f));
+}
+
+TEST_CASE("variant::array")
+{
+    array arr = {123, -59.6f, 8.53f, -8};
+    CHECK(std::get<int>(arr[0]) == 123);
+    CHECK(std::get<float>(arr[1]) == Catch::Approx(-59.6f));
+    CHECK(std::get<float>(arr[2]) == Catch::Approx(8.53f));
+    CHECK(std::get<int>(arr[3]) == -8);
+}
+
+TEST_CASE("variant::recursive_array")
+{
+    recursive_array arr = {1, 2.2f, std::make_shared<recursive_array>(recursive_array{3, 7.9f, -8}), 9};
+    CHECK(std::get<float>(std::get<number>(arr[1])) == Catch::Approx(2.2f));
+    CHECK(std::get<int>(std::get<number>(std::get<std::shared_ptr<recursive_array>>(arr[2])->operator[](2))) == -8);
+    CHECK(std::get<int>(std::get<number>(arr[3])) == 9);
+
+    const auto arr2 = arr;
+    CHECK(std::get<int>(std::get<number>(arr2[3])) == 9);
+}
+
+TEST_CASE("variant::recursive_array2")
+{
+    recursive_array2 arr = {1.0f, 2, recursive_array2{7, 9.0f}};
+    CHECK(std::get<int>(std::get<number>(arr[1])) == 2);
+    CHECK(std::get<float>(std::get<number>(std::get<boost::recursive_wrapper<recursive_array2>>(arr[2]).get()[1])) == Catch::Approx(9.0f));
+
+    const auto arr2 = arr;
+    CHECK(std::get<int>(std::get<number>(arr2[1])) == 2);
+}
+
+TEST_CASE("variant::variant_decorator")
+{
+    variant_decorator<std::string, float, int, boost::recursive_wrapper<bool>> v{86};
+    CHECK(std::get<int>(v) == 86);
+
+    SECTION("content")
+    {
+        v = std::string("text");
+        CHECK(v.as<std::string>() == "text");
+
+        v = 33.56f;
+        CHECK(v.as<float>() == Catch::Approx(33.56f));
+    }
+
+    SECTION("const")
+    {
+        const auto cv = v;
+        CHECK(cv.as<int>() == 86);
+    }
+
+    SECTION("mutable")
+    {
+        v.as<int>() = 53;
+        CHECK(v.as<int>() == 53);
+    }
+
+    SECTION("recursive_wrapper")
+    {
+        v = boost::recursive_wrapper<bool>{true};
+        CHECK(v.as<bool>() == true);
+
+        const auto cv = v;
+        CHECK(cv.as<bool>() == true);
+    }
+}
+
+TEST_CASE("variant::recursive_map")
+{
+    using namespace std::string_literals;
+
+    recursive_map m = {
+        {"abc", 132},
+        {"next", "message"s},
+        {"map", recursive_map{
+            {"inner", true},
+            {"num", 123},
+        }}
+    };
+
+    SECTION("std::get")
+    {
+        CHECK(boost::get<int>(m["abc"]) == 132);
+        CHECK(boost::get<std::string>(m["next"]) == "message");
+        auto& inner = boost::get<boost::recursive_wrapper<recursive_map>>(m["map"]).get();
+        CHECK(boost::get<bool>(inner["inner"]) == true);
+        CHECK(boost::get<int>(inner["num"]) == 123);
+    }
+
+    SECTION("as")
+    {
+        CHECK(m.as<int>("abc") == 132);
+        CHECK(m.as<std::string>("next") == "message");
+        auto& inner = m.as<recursive_map>("map");
+        CHECK(inner.as<bool>("inner") == true);
+        CHECK(inner.as<int>("num") == 123);
+    }
+}
